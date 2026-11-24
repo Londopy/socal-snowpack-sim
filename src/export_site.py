@@ -16,7 +16,9 @@ import urllib.request
 import numpy as np
 from PIL import Image
 
-import model
+from socal_snowpack import daily, solar, weather
+from socal_snowpack.grid import ASP_NAMES, BAND_EDGES_M, BAND_NAMES, MID, NDAYS, PROBLEMS
+from socal_snowpack.params import load_params
 from peaks import PEAKS
 from terrain import HALF_WIDTH_M, fetch_tile, tile_xy
 
@@ -159,27 +161,28 @@ def export_region(peaks):
 
 def export_winters(n_seasons=400, seed=7):
     """Re-run model.py's seasons and keep the dry, typical and big winters at 8,500-9,500 ft."""
+    p = load_params()
     rng = np.random.default_rng(seed)
-    gmean, gpeak = model.solar_tables()
+    gmean, gpeak = solar.solar_tables(p)
     seasons = []
     for _ in range(n_seasons):
-        wx = model.make_season(rng)
-        o = model.run_season(wx, gmean, gpeak)
-        seasons.append((float(o["snowfall"][model.MID]), wx))
+        wx = weather.make_season(rng, p)
+        o = daily.run_season(wx, gmean, gpeak, p)
+        seasons.append((float(o["snowfall"][MID]), wx))
     falls = np.array([s[0] for s in seasons])
     # guard against this loop drifting from model.main's RNG order
     ref = json.load(open(os.path.join(ROOT, "results", "model.json")))["snowfall_mm_water_by_band"]
     for pct in (10, 50, 90):
-        if round(float(np.percentile(falls, pct))) != ref["p%d" % pct][model.MID]:
+        if round(float(np.percentile(falls, pct))) != ref["p%d" % pct][MID]:
             raise RuntimeError("re-run seasons no longer match results/model.json; run model.py first")
     picks = [("dry", "Dry winter", 10), ("typical", "Typical winter", 50), ("big", "Big winter", 90)]
     winters = []
     for key, label, pct in picks:
         i = int(np.argmin(np.abs(falls - np.percentile(falls, pct))))
         wx = seasons[i][1]
-        o = model.run_season(wx, gmean, gpeak)
+        o = daily.run_season(wx, gmean, gpeak, p)
         grid = {k: np.round(o[k] * 100).astype(int).ravel().tolist()
-                for k in model.PROBLEMS + ["ice", "ft", "corn"]}
+                for k in PROBLEMS + ["ice", "ft", "corn"]}
         grid["swe"] = np.round(o["swe"]).astype(int).ravel().tolist()
         winters.append(dict(
             key=key, label=label, percentile=pct, season_index=i,
@@ -201,10 +204,11 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     peaks = export_peaks()
     region = export_region(peaks)
+    p = load_params()
     res = json.load(open(os.path.join(ROOT, "results", "model.json")))
     meta = dict(
-        days=model.NDAYS, aspects=model.ASP_NAMES, bands=model.BAND_NAMES,
-        band_edges_m=model.BAND_EDGES_M.tolist(), elevated=model.CONSIDERABLE, high=model.HIGH,
+        days=NDAYS, aspects=ASP_NAMES, bands=BAND_NAMES,
+        band_edges_m=BAND_EDGES_M.tolist(), elevated=p.levels.considerable, high=p.levels.high,
         index_scale=100, region=region, peaks=peaks)
     with open(os.path.join(OUT, "site.json"), "w") as f:
         json.dump(meta, f, separators=(",", ":"))
