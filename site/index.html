@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SoCal Snowpack Sim: 34 peaks, simulated winters, 3D terrain</title>
+    <meta
+      name="description"
+      content="Real USGS terrain for 34 Southern California ski-touring peaks with simulated winters played back day by day. A learning tool, not an avalanche forecast."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="sheet" id="sheet">
+      <header class="title">
+        <h1 id="sheet-title">SoCal Snowpack Sim</h1>
+        <p class="sub" id="sheet-sub">34 ski-touring peaks in the San Gabriel, San Bernardino and San Jacinto Mountains. Real terrain, simulated winters. Pick a peak to fly in.</p>
+        <nav class="tools" aria-label="Site">
+          <button type="button" id="open-tour">Tour</button>
+          <button type="button" id="open-findings">Findings</button>
+          <button type="button" id="open-about">About</button>
+        </nav>
+      </header>
+
+      <nav class="index" id="index" aria-label="Sheet index">
+        <h2>Sheet index</h2>
+        <button type="button" class="region-link" id="region-link">All three ranges</button>
+        <div id="index-list"></div>
+      </nav>
+
+      <main class="frame" id="frame">
+        <canvas id="map" aria-label="3D terrain"></canvas>
+        <div class="markers" id="markers"></div>
+        <div class="compass" aria-hidden="true">
+          <svg viewBox="-20 -20 40 40" id="north"><path d="M0 -15 L6 8 L0 3 L-6 8 Z" /><text y="-17">N</text></svg>
+        </div>
+        <div class="scale" id="scale" aria-hidden="true"><div class="bar"></div><span id="scale-label"></span></div>
+        <p class="sheet-note" id="sheet-note">34 peaks &middot; 3 ranges</p>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <div class="clock" id="clock" hidden>
+          <button type="button" class="clock-toggle" id="clock-toggle" aria-pressed="false">Day clock</button>
+          <div class="clock-body" id="clock-body" hidden>
+            <button type="button" class="clock-play" id="clock-play" aria-label="Run the clock"><svg viewBox="0 0 16 16"><path id="clock-icon" d="M4 2 L13 8 L4 14 Z" /></svg></button>
+            <label for="clock-hour" id="clock-label">7:00 am</label>
+            <input type="range" id="clock-hour" min="5" max="21" step="0.25" value="7" />
+            <p>Illustrated. The model knows a slope thawed and refroze that day, not the hour, so here slopes soften while the real sun is on them.</p>
+          </div>
+        </div>
+        <p class="exag" id="exag"></p>
+        <div class="dayline"><span id="dayline"></span><span class="disclaim">Simulated weather, not an avalanche forecast</span></div>
+        <div class="nogl" id="nogl" hidden>
+          <h2>This browser can't draw the 3D map</h2>
+          <p>The 3D view needs WebGL, and starting it failed (<span id="nogl-reason"></span>). The results are also in the project's
+            <a href="https://github.com/Londopy/socal-snowpack-sim#readme">README</a>, with the same figures as still images.</p>
+        </div>
+      </main>
+
+      <aside class="legend" id="legend" aria-label="Legend">
+        <div class="tabs" role="tablist" aria-label="Panels">
+          <button type="button" role="tab" id="tab-index" aria-controls="index">Peaks</button>
+          <button type="button" role="tab" id="tab-legend" aria-controls="legend-body" aria-selected="true">Legend</button>
+        </div>
+        <div id="legend-body">
+          <fieldset>
+            <legend>Map</legend>
+            <div class="layers" id="layers"></div>
+          </fieldset>
+          <fieldset>
+            <legend>Overprint, slopes 30&deg; and steeper</legend>
+            <label class="toggle"><input type="checkbox" id="snow" checked /> Simulated snow cover</label>
+            <div class="overprints" id="overprints"></div>
+          </fieldset>
+          <section class="roses" aria-labelledby="roses-h">
+            <h2 id="roses-h">Today by aspect and elevation</h2>
+            <div class="rose-grid" id="roses"></div>
+            <p class="note">Rings are elevation bands, 6,600 ft outside to 11,500 ft in the middle. Outlined cells are at or above the model's "elevated" line (0.45).</p>
+          </section>
+          <section class="roses ft" aria-labelledby="ft-h">
+            <h2 id="ft-h">Freeze-thaw today</h2>
+            <div class="ft-row"><div id="ft-rose"></div>
+              <ul class="ft-key">
+                <li><i class="k-cycle"></i>Thawed by day, refroze at night</li>
+                <li><i class="k-corn"></i>Corn, after several cycles</li>
+                <li><i class="k-ice"></i>Refrozen ice all day</li>
+              </ul>
+            </div>
+          </section>
+          <section class="facts" id="facts" hidden></section>
+          <p class="limits">The weather is simulated and the snowpack rules are hand-tuned. It shows patterns to learn from. It is not an avalanche forecast and cannot tell you whether a slope is safe.</p>
+        </div>
+      </aside>
+
+      <footer class="strip" id="strip">
+        <div class="controls">
+          <button type="button" class="play" id="play" aria-label="Play winter"><svg viewBox="0 0 16 16"><path id="play-icon" d="M4 2 L13 8 L4 14 Z" /></svg></button>
+          <div class="winters" role="radiogroup" aria-label="Simulated winter" id="winters"></div>
+          <label class="speed">Speed
+            <select id="speed">
+              <option value="2">Slow</option>
+              <option value="5" selected>Normal</option>
+              <option value="12">Fast</option>
+            </select>
+          </label>
+        </div>
+        <div class="timebox">
+          <div class="timeline" id="timeline" role="slider" tabindex="0" aria-label="Day of winter" aria-valuemin="0" aria-valuemax="166"></div>
+          <p class="strip-key"><span><i class="k-rain"></i>Precipitation, mm of water at 8,500 ft</span><span><i class="k-storm"></i>Storm days</span><span><i class="k-santa"></i>Santa Ana wind</span><span><i class="k-ft"></i>Freeze-thaw, share of snowy slopes that cycled</span><span>Simulated, 15 Nov to 30 Apr</span></p>
+        </div>
+      </footer>
+    </div>
+
+    <section class="panel findings" id="findings" hidden aria-labelledby="findings-h">
+      <header><h2 id="findings-h">Findings across 400 simulated winters</h2><button type="button" class="close" data-close>Close</button></header>
+      <div class="panel-body" id="findings-body"></div>
+    </section>
+
+    <section class="panel about" id="about" hidden aria-labelledby="about-h">
+      <header><h2 id="about-h">About this map</h2><button type="button" class="close" data-close>Close</button></header>
+      <div class="panel-body prose" id="about-body"></div>
+    </section>
+
+    <aside class="tour-card" id="tour" hidden aria-live="polite">
+      <h2 id="tour-title"></h2>
+      <p id="tour-text"></p>
+      <div class="tour-nav">
+        <span class="tour-step" id="tour-step"></span>
+        <button type="button" id="tour-prev">Back</button>
+        <button type="button" id="tour-next">Next</button>
+        <button type="button" id="tour-end">End tour</button>
+      </div>
+    </aside>
+
+    <div class="tip" id="tip" role="tooltip" hidden></div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
