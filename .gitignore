@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 site/node_modules/
 site/dist/
+.pytest_cache/
+*.egg-info/

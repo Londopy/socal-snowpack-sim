@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "socal-snowpack"
+version = "0.1.0"
+description = "Snowpack model for Southern California touring peaks, daily and hourly"
+license = "MIT"
+authors = [{ name = "Londopy" }]
+requires-python = ">=3.11"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["socal_snowpack"]
+
+[tool.setuptools.package-data]
+socal_snowpack = ["params.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
