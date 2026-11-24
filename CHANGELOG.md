@@ -7,6 +7,12 @@ what appears on its GitHub release page.
 
 ## [Unreleased]
 
+### Added
+
+- The model is now an importable package, `socal_snowpack`, with every threshold in `params.toml`.
+- An hourly version of the model with a layer stack, terrain shading and a snow-level uncertainty
+  band, checked against the daily model over 30 simulated winters.
+
 ### Fixed
 
 - The tour card no longer covers the winter timeline on phones and tablets, or the day line on desktop.

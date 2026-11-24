@@ -29,6 +29,7 @@ class Hourly:
     persistent: np.ndarray
     ice: np.ndarray
     surface: np.ndarray
+    snow_mm: np.ndarray
     swe_mm: np.ndarray
     liquid_mm: np.ndarray
     cycle: np.ndarray
@@ -69,9 +70,9 @@ def _snowfall(s, snow, p):
 def _wind(s, f, p):
     q = p.daily
     expo = band_exposure(q)[:, None]
-    lee = np.cos(np.radians(ASPECTS) - np.radians((f.wind_from_deg + 180.0) % 360.0)[..., None, None])
+    lee = np.cos(np.radians(ASPECTS) - np.radians((f.wind_from_deg + 180.0) % 360.0))
     lee = np.broadcast_to(lee, s.new_mm.shape)
-    strength = np.clip((f.wind_ms - q.wind_min_ms) / q.wind_span_ms, 0, q.wind_strength_cap)[..., None, None]
+    strength = np.clip((f.wind_ms - q.wind_min_ms) / q.wind_span_ms, 0, q.wind_strength_cap)
     avail = np.clip(s.dry_mm / q.dry_full_mm, 0, 1)
     slab = s.wind_slab * math.exp(-1 / (DAY_H * q.wind_slab_tau_days)) \
         + q.wind_load_rate / DAY_H * strength * np.clip(lee, 0, 1) * avail * expo
@@ -85,10 +86,10 @@ def _wind(s, f, p):
 def _sun(s, f, p, horizon):
     g = hourly_irradiance(f.doy, f.hour, p, horizon)
     if f.sw_down is None:
-        return g * (1 - p.daily.cloud_block * f.cloud)[..., None, None]
+        return g * (1 - p.daily.cloud_block * f.cloud)
     flat = hourly_flat(f.doy, f.hour, p)
     ratio = np.minimum(g / max(flat, p.hourly.min_flat_wm2), p.hourly.max_slope_ratio)
-    return np.asarray(f.sw_down)[..., None, None] * ratio * (flat > p.hourly.min_flat_wm2)
+    return f.sw_down * ratio * (flat > p.hourly.min_flat_wm2)
 
 
 def _energy(s, f, p, horizon):
@@ -237,6 +238,6 @@ def step(s, f, p, horizon=None):
     s, cycle = _refreeze(s, t_c, p)
     surface = _surface(s, rain, drain, scour, p)
     out = Hourly(storm=storm, wind=wind, wet=wet, persistent=pers, ice=(surface == ICE).astype(float),
-                 surface=surface, swe_mm=s.swe_mm.sum(axis=0), liquid_mm=top_value(s.liquid_mm, top(s)),
+                 surface=surface, snow_mm=snow, swe_mm=s.swe_mm.sum(axis=0), liquid_mm=top_value(s.liquid_mm, top(s)),
                  cycle=cycle)
     return _age(s), out
