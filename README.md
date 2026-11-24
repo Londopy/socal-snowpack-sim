@@ -220,16 +220,33 @@ Per-peak slope maps are in [figures/peaks](figures/peaks). Full numbers are in
 1. **Terrain** (`src/terrain.py`). Downloads public elevation tiles (AWS Terrain Tiles, built
    from USGS 3DEP, about 16 m per pixel), then computes slope and aspect. Each peak is snapped
    to the local high point and checked against its listed elevation; all 34 agree within 30 ft.
-2. **Weather generator** (`src/model.py`). Random storms, mostly from the S to W, a quarter of
+2. **Weather generator** (`src/socal_snowpack/weather.py`). Random storms, mostly from the S to W, a quarter of
    them warm with high snow levels; Santa Ana wind events; sunny spells in between; large
    year-to-year swings. Daily step, 15 Nov to 30 Apr.
-3. **Snowpack** (`src/model.py`). For 8 aspects and 5 elevation bands on a 38 degree slope it
+3. **Snowpack** (`src/socal_snowpack/daily.py`, run by `src/model.py`). For 8 aspects and 5 elevation bands on a 38 degree slope it
    tracks new snow, wind loading on lee slopes, sun on each aspect from the sun's path at 34 N,
    melt, refreezing, melt-freeze cycles, and facet growth. It outputs an index from 0 to about
    1.2 for storm slab, wind slab, wet avalanches and persistent slab. 0.45 is "elevated" and
-   0.75 is "high". Those cut-offs are the author's.
+   0.75 is "high". Those cut-offs are the author's. Every threshold and rate is named in
+   `src/socal_snowpack/params.toml`.
 4. **Analysis** (`src/analyze.py`). Weights the model table by each peak's terrain and draws
    the figures.
+
+### The hourly model
+
+`src/socal_snowpack/step.py` is the same model run one hour at a time on a small layer stack
+per zone, so it can track buried crusts and facets and say when a slope refreezes, softens and
+goes wet. It is meant to be driven by real weather, one `step(state, forcing)` per hour, and it
+takes terrain shading from horizon angles worked out from each peak's DEM
+(`src/socal_snowpack/shading.py`). The snow level comes with an uncertainty band, so a forecast
+snow level that might be 500 ft off shows up as mixed rain and snow instead of a sharp line.
+
+`tests/test_reproduce.py` runs 30 simulated winters through both models and checks that the
+hourly one reproduces the daily one's findings. It does, with these differences: it melts
+sun-facing slopes out sooner (south slopes at 8,500-9,500 ft keep snow about 30 days a winter
+against 51), its wet index runs higher on sunny afternoons, and it grows fewer facets, because
+they only grow in the cold hours instead of all day. It is no more calibrated than the daily
+model.
 
 ![Example winter](figures/example_winter.png)
 
@@ -270,6 +287,8 @@ Some of this agreement is built in by the rules, so treat it as a consistency ch
 
 ```
 pip install -r requirements.txt
+pip install -e .[dev]
+pytest                    # the daily model must still match tests/golden exactly
 python src/terrain.py     # downloads elevation tiles into data/
 python src/model.py       # 400 simulated winters, about 20 seconds
 python src/analyze.py     # figures/ and results/
