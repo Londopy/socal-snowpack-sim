@@ -439,7 +439,7 @@ table.peaks tbody tr:hover { background: var(--red-soft); }
   position: fixed;
   z-index: 8;
   left: 262px;
-  bottom: 150px;
+  bottom: 176px;
   width: min(380px, calc(100vw - 32px));
   background: var(--paper);
   border: 1.5px solid var(--ink);
@@ -466,9 +466,11 @@ table.peaks tbody tr:hover { background: var(--red-soft); }
   .sheet { height: auto; min-height: 100dvh; display: flex; flex-direction: column; }
   .title { order: 1; }
   .frame { order: 2; height: 62dvh; flex: none; }
-  .strip { order: 3; }
-  .legend { order: 4; }
-  .index { order: 5; }
+  /* on phones and tablets the tour card joins the page under the map, so it never covers the timeline */
+  .tour-card { order: 3; position: static; width: auto; margin: 10px 10px 0; }
+  .strip { order: 4; }
+  .legend { order: 5; }
+  .index { order: 6; }
   .title { grid-template-columns: 1fr; padding: 14px 16px 10px; row-gap: 4px; }
   .tools { grid-column: 1; grid-row: auto; justify-self: start; }
   .sub { font-size: 14px; }
@@ -503,7 +505,6 @@ table.peaks tbody tr:hover { background: var(--red-soft); }
   .panel { left: 0; border-left: 0; }
   .panel > header, .panel-body { padding-left: 16px; padding-right: 16px; }
   .charts { grid-template-columns: 1fr; }
-  .tour-card { left: 16px; bottom: 16px; }
   .marker.minor { font-size: 11px; }
 }
 

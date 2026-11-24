@@ -7,6 +7,10 @@ what appears on its GitHub release page.
 
 ## [Unreleased]
 
+### Fixed
+
+- The tour card no longer covers the winter timeline on phones and tablets, or the day line on desktop.
+
 ## [0.1.0] - 2026-11-23
 
 ### Added
