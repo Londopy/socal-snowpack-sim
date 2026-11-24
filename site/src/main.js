@@ -8,13 +8,14 @@ import * as THREE from "three";
 import { Scene } from "./scene.js";
 import { loadHeights, loadImage, heightAt } from "./terrain.js";
 import { stitch } from "./imagery.js";
-import { Winter, PROBLEMS } from "./winter.js";
+import { Winter, PROBLEMS, dayDate } from "./winter.js";
 import { Roses } from "./roses.js";
 import { Strip, weatherLine } from "./strip.js";
 import { renderFindings } from "./findings.js";
 import { aboutHTML } from "./about.js";
 import { Tour } from "./tour.js";
 import { sunAt, clockLabel } from "./sun.js";
+import { Slide } from "./slide.js";
 
 const BASE = import.meta.env.BASE_URL;
 const R = 6378137;
@@ -45,7 +46,7 @@ const OVERPRINTS = [
   { key: "freeze", name: "Freeze-thaw", sw: "repeating-linear-gradient(45deg, var(--ink) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, var(--ink) 0 1px, transparent 1px 4px)" },
 ];
 
-const state = { peak: null, layer: "relief", over: "all", snow: true, winter: "typical", day: null };
+const state = { peak: null, view: null, layer: "relief", over: "all", snow: true, winter: "typical", day: null };
 let meta;
 let winters;
 let model;
@@ -69,6 +70,7 @@ function readHash() {
   if (LAYERS.some((l) => l.key === h.get("l"))) state.layer = h.get("l");
   if (OVERPRINTS.some((o) => o.key === h.get("o"))) state.over = h.get("o");
   if (h.has("s")) state.snow = h.get("s") !== "0";
+  if (h.get("v") === "bowl") state.view = "bowl";
   if (Object.hasOwn(winters, h.get("w") ?? "")) state.winter = h.get("w");
   const d = parseInt(h.get("d"), 10);
   if (d >= 0 && d < meta.days) state.day = d;
@@ -84,6 +86,7 @@ function writeHash() {
     h.set("l", state.layer);
     h.set("o", state.over);
     if (!state.snow) h.set("s", "0");
+    if (state.view) h.set("v", state.view);
     h.set("w", state.winter);
     h.set("d", state.day);
     history.replaceState(null, "", `#${h}`);
@@ -96,8 +99,8 @@ function status(text, error = false) {
   s.classList.toggle("error", error);
 }
 
-async function getJSON(name) {
-  const res = await fetch(`${BASE}data/${name}`);
+async function getJSON(name, signal) {
+  const res = await fetch(`${BASE}data/${name}`, { signal });
   if (!res.ok) throw new Error(`data/${name} answered ${res.status}`);
   return res.json();
 }
@@ -214,10 +217,10 @@ function finishTexture(tex, colorSpace) {
   return tex;
 }
 
-async function lidarTexture(slug, signal) {
-  const key = `${slug}:lidar`;
+async function lidarTexture(place, signal) {
+  const key = `${place.id}:lidar`;
   if (!texCache.has(key)) {
-    const img = await loadImage(`${BASE}data/lidar/${slug}.jpg`, signal);
+    const img = await loadImage(place.lidarUrl, signal);
     texCache.set(key, finishTexture(new THREE.Texture(img), THREE.NoColorSpace));
   }
   return texCache.get(key);
@@ -227,23 +230,24 @@ async function lidarTexture(slug, signal) {
 // on screen, so a slow download can never land on the wrong one
 async function texture(kind) {
   const place = current;
-  if (kind === "lidar") return lidarTexture(place.id, abort.signal);
+  if (kind === "lidar") return lidarTexture(place, abort.signal);
   const key = `${place.id}:${kind}`;
   if (texCache.has(key)) return texCache.get(key);
   const bbox = place.bbox;
   const region = place.kind === "region";
   const w = region ? 2560 : 2048;
   const h = region ? Math.round((w * (bbox[3] - bbox[1])) / (bbox[2] - bbox[0])) : 2048;
-  const res = await stitch(kind, bbox, region ? 11 : 15, w, h, abort.signal);
+  const zoom = { region: 11, peak: 15, detail: 16 }[place.kind];
+  const res = await stitch(kind, bbox, zoom, w, h, abort.signal);
   if (res.missing) status(`${res.missing} of ${res.total} USGS map tiles didn't load, so parts of this layer are blank.`, true);
   const tex = finishTexture(new THREE.CanvasTexture(res.canvas), THREE.SRGBColorSpace);
   texCache.set(key, tex);
   return tex;
 }
 
-// peak textures are 2048 px each; let them go when the peak is left
+// peak and close-up textures are 2048 px each; let them go when the place is left
 function dropTextures(place) {
-  if (!place || place.kind !== "peak") return;
+  if (!place || place.kind === "region") return;
   for (const [key, tex] of texCache) {
     if (!key.startsWith(`${place.id}:`)) continue;
     tex.dispose();
@@ -310,6 +314,7 @@ function setDay(d) {
   const [A, B] = w.textures(state.day);
   scene.setGrid(A, B);
   $("dayline").innerHTML = weatherLine(w, state.day);
+  if (current?.id === "bowl") planSlide();
   if (clock.on) scene.setSun(sunAt(state.day, clock.hour));
   roses.update(w, state.day, state.peak ? summitM() : null);
   strip.setDay(state.day);
@@ -341,6 +346,7 @@ let lastFrame = performance.now();
 function tick() {
   const t = performance.now();
   tickClock(Math.min((t - lastFrame) / 1000, 0.1));
+  tickSlide(Math.min((t - lastFrame) / 1000, 0.05));
   lastFrame = t;
   if (!playing) return;
   const now = performance.now();
@@ -445,6 +451,7 @@ function peakPlace(p, dem) {
   return {
     kind: "peak",
     id: p.slug,
+    lidarUrl: `${BASE}data/lidar/${p.slug}.jpg`,
     bbox: b,
     dem,
     exag: PEAK_EXAG,
@@ -596,6 +603,7 @@ function updateScale() {
 }
 
 async function showPlace(place, cam) {
+  endSlide();
   scene.setTerrain(place.dem, place.width, place.depth, place.exag);
   if (current?.id !== place.id) dropTextures(current);
   current = place;
@@ -627,6 +635,7 @@ async function goRegion(fly = true) {
   const from = state.peak ? peakBy(state.peak) : null;
   const fromView = scene.view();
   state.peak = null;
+  leaveBowl();
   if (state.layer === "lidar") state.layer = "relief";
   const place = regionPlace(regionDem);
   let start = null;
@@ -674,6 +683,7 @@ async function goPeak(slug) {
   const fromRegion = current?.kind === "region";
   const fromView = scene.view();
   state.peak = slug;
+  leaveBowl();
   const place = peakPlace(p, dem);
   let start = null;
   if (fromRegion) {
@@ -687,7 +697,7 @@ async function goPeak(slug) {
   status("");
   setTitle();
   try {
-    const lidar = await lidarTexture(slug, signal);
+    const lidar = await lidarTexture(place, signal);
     if (token !== loadToken) return;
     scene.setLidar(lidar);
   } catch (err) {
@@ -704,6 +714,14 @@ async function goPeak(slug) {
 
 function setTitle() {
   const p = state.peak && peakBy(state.peak);
+  if (state.view === "bowl") {
+    const r = bowlMeta.release;
+    $("sheet-title").textContent = "Baldy Bowl";
+    $("sheet-sub").textContent = `Mt. Baldy's south-east bowl, 3 m USGS terrain. The headwall release zone covers ${(r.area_m2 / 10000).toFixed(1)} ha at ${r.slope_deg}° on average, facing ${compassName(r.aspect_deg)}, ${Math.round(r.bottom_m * FT).toLocaleString()} to ${Math.round(r.top_m * FT).toLocaleString()} ft.`;
+    $("sheet-note").textContent = "Close-up · Mt. Baldy";
+    document.title = "Baldy Bowl · SoCal Snowpack Sim";
+    return;
+  }
   if (!p) {
     $("sheet-title").textContent = "SoCal Snowpack Sim";
     $("sheet-sub").textContent = `${meta.peaks.length} ski-touring peaks in the San Gabriel, San Bernardino and San Jacinto Mountains. Real terrain, simulated winters. Pick a peak to fly in.`;
@@ -748,7 +766,228 @@ function renderFacts(p) {
       <dt>Snow days with refrozen ice</dt><dd>${s.ice_share_of_snow_days_pct}%</dd>
       <dt>Snow-cover days</dt><dd>${s.model_days_snow}</dd>
     </dl>
-    <p class="note">Averages per simulated winter over this peak's steep terrain (30° and up, within 1.5 km of the summit and no more than 750 m below it), weighted by its real aspects and elevations.</p>`;
+    <p class="note">Averages per simulated winter over this peak's steep terrain (30° and up, within 1.5 km of the summit and no more than 750 m below it), weighted by its real aspects and elevations.</p>
+    ${p.slug === "baldy" ? `<div class="bowl-link"><h2>Baldy Bowl</h2><p>Zoom into the bowl below the summit and watch what a slide off its headwall could look like on today's simulated snow.</p><button type="button" id="open-bowl">Show a possible slide</button></div>` : ""}`;
+  $("open-bowl")?.addEventListener("click", () => goBowl());
+}
+
+let bowlMeta;
+let bowlDem;
+let slide = null;
+const SLIDE_SPEED = 2.2;
+const SLAB_NAMES = { storm: "storm slab", wind: "wind slab", persistent: "persistent slab" };
+
+function compassName(deg) {
+  return ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"][Math.round(deg / 45) % 8];
+}
+
+function bowlPlace(dem) {
+  const b = bowlMeta.bbox;
+  const k = bowlMeta.size_m / (b[2] - b[0]);
+  const cx = (b[0] + b[2]) / 2;
+  const cy = (b[1] + b[3]) / 2;
+  return {
+    kind: "detail",
+    id: "bowl",
+    lidarUrl: `${BASE}data/bowl/lidar.jpg`,
+    bbox: b,
+    dem,
+    exag: 1,
+    width: bowlMeta.size_m,
+    depth: bowlMeta.size_m,
+    pos(lat, lon) {
+      const [mx, my] = merc(lat, lon);
+      const u = (mx - b[0]) / (b[2] - b[0]);
+      const v = (b[3] - my) / (b[3] - b[1]);
+      if (u < 0.02 || u > 0.98 || v < 0.02 || v > 0.98) return null;
+      return new THREE.Vector3((mx - cx) * k, heightAt(dem, u, v), -(my - cy) * k);
+    },
+  };
+}
+
+// look back at the release zone from out over the bowl floor, the way it faces
+function bowlCamera(place) {
+  const n = bowlMeta.grid;
+  let x = 0;
+  let z = 0;
+  for (const [i, j] of bowlMeta.blocks) {
+    x += (j / (n - 1) - 0.5) * place.width;
+    z += (i / (n - 1) - 0.5) * place.depth;
+  }
+  x /= bowlMeta.blocks.length;
+  z /= bowlMeta.blocks.length;
+  const y = heightAt(place.dem, x / place.width + 0.5, z / place.depth + 0.5);
+  const a = THREE.MathUtils.degToRad(bowlMeta.release.aspect_deg);
+  const target = new THREE.Vector3(x + Math.sin(a) * 420, y - 300, z - Math.cos(a) * 420);
+  const tall = scene.camera.aspect < 1;
+  const out = tall ? 2000 : 1700;
+  const pos = new THREE.Vector3(x + Math.sin(a) * out, y + (tall ? 1300 : 950), z - Math.cos(a) * out);
+  return { pos, target };
+}
+
+async function goBowl() {
+  const token = ++loadToken;
+  abort?.abort();
+  abort = new AbortController();
+  const signal = abort.signal;
+  stop();
+  status("Loading Baldy Bowl...");
+  let approach = null;
+  try {
+    bowlMeta ||= await getJSON("bowl/bowl.json", signal);
+    if (token !== loadToken) return;
+    if (current?.id === "baldy") {
+      const at = current.pos(...bowlMeta.center);
+      const target = new THREE.Vector3(at.x, at.y, at.z);
+      const a = THREE.MathUtils.degToRad(bowlMeta.release.aspect_deg);
+      approach = scene.fly(target.clone().add(new THREE.Vector3(Math.sin(a) * 1600, 1100, -Math.cos(a) * 1600)), target, 1400);
+    }
+    [bowlDem] = await Promise.all([bowlDem || loadHeights(`${BASE}data/bowl/terrain.png`, signal), approach]);
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    // opened straight from a link, there is no view behind the bowl to fall back on
+    if (!current) await goPeak("baldy");
+    status(`Couldn't load Baldy Bowl (${err.message}).`, true);
+    return;
+  }
+  if (token !== loadToken) return;
+  const fromView = current?.id === "baldy" ? scene.view() : null;
+  if (current?.id !== "bowl") overBeforeBowl = state.over;
+  state.peak = "baldy";
+  state.view = "bowl";
+  // the problem hatching would cover the whole steep bowl and hide the slide
+  setOverprint("off");
+  const place = bowlPlace(bowlDem);
+  const cam = bowlCamera(place);
+  let start = null;
+  if (fromView) {
+    const centre = place.pos(...bowlMeta.center);
+    const off = fromView.position.clone().sub(fromView.target);
+    start = { pos: centre.clone().add(off), target: centre };
+  }
+  await showPlace(place, start || cam);
+  status("");
+  setTitle();
+  try {
+    const lidar = await lidarTexture(place, signal);
+    if (token !== loadToken) return;
+    scene.setLidar(lidar);
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    status(`Couldn't load the lidar hillshade for Baldy Bowl (${err.message}).`, true);
+  }
+  setLayer(state.layer);
+  strip.setWinter(winters[state.winter], viewBands());
+  setDay(state.day);
+  syncControls();
+  $("slidebox").hidden = false;
+  planSlide();
+  await scene.fly(cam.pos, cam.target, start ? 1100 : 0);
+  if (token === loadToken && slideFor) playSlide();
+}
+
+// the model's read of the headwall: each problem averaged over the zone's own aspects and bands
+let slideFor = null;
+function planSlide() {
+  const w = winters[state.winter];
+  const d = state.day;
+  const key = `${state.winter}:${d}`;
+  if (slide && slide.key !== key) dropSlide();
+  const at = (p, c) => w.value(p, d, c.band, c.aspect);
+  const zoneValue = (p) => bowlMeta.cells.reduce((sum, c) => sum + c.share * at(p, c), 0);
+  const slab = Object.keys(SLAB_NAMES).map((p) => ({ p, v: zoneValue(p) })).sort((x, y) => y.v - x.v)[0];
+  const wet = { p: "wet", v: zoneValue("wet") };
+  const pick = slab.v >= meta.elevated ? slab : wet.v >= meta.elevated ? wet : null;
+  const when = `${dayDate(d).label} of the simulated ${w.label.toLowerCase()}`;
+  let plan = null;
+  if (pick) {
+    const hot = bowlMeta.cells.filter((c) => at(pick.p, c) >= meta.elevated);
+    const share = Math.round(100 * hot.reduce((sum, c) => sum + c.share, 0));
+    const read = `${when}: the model flags ${pick.p === "wet" ? "wet snow" : SLAB_NAMES[pick.p]} at ${pick.v.toFixed(2)} (${pick.v >= meta.high ? "high" : "elevated"}) averaged over this headwall's slopes, and at or above elevated on ${share}% of them. Only those slopes are drawn releasing.`;
+    plan = { key, cells: new Set(hot.map((c) => `${c.aspect},${c.band}`)), color: cssVar(`--p-${pick.p}`) };
+    if (pick.p === "wet") {
+      Object.assign(plan, { kind: "wet", depth: 0.35, title: "Wet snow could slide here", why: `${read} Wet slides start at a point and gather snow as they go.` });
+    } else {
+      let depth = pick.p === "wind" ? 0.4 + 0.5 * Math.min(pick.v, 1) : 0.9;
+      if (pick.p === "storm") {
+        let water = 0;
+        for (let k = d; k >= 0 && k > d - 6; k--) {
+          if (w.w.storm[k]) water += w.w.precip_mm[k];
+          else if (water) break;
+        }
+        depth = THREE.MathUtils.clamp(water / 100, 0.1, 1.2);
+      }
+      const from = pick.p === "storm" ? ", scaled from this storm's simulated snowfall" : "";
+      Object.assign(plan, { kind: "slab", depth, title: `A ${SLAB_NAMES[pick.p]} could release here`, why: `${read} The slab is drawn about ${Math.round(depth * 100)} cm thick${from}.` });
+    }
+  }
+  slideFor = plan;
+  $("slide-title").textContent = plan ? plan.title : "No slide to show today";
+  $("slide-why").textContent = plan
+    ? plan.why
+    : `${when}: the model flags no slab or wet problem on the Bowl's slopes. Pick a storm day on the timeline, or jump to this winter's biggest storm.`;
+  $("slide-ctl").hidden = !plan;
+  $("slide-storm").hidden = Boolean(plan);
+}
+
+function playSlide() {
+  if (!slideFor || state.view !== "bowl") return;
+  slide?.dispose();
+  slide = new Slide(scene, current, bowlMeta, slideFor);
+  slide.key = slideFor.key;
+  $("slide-result").textContent = "";
+  $("slide-play").textContent = "Replay";
+  if (reducedMotion()) {
+    slide.settle();
+    slideDone();
+  } else slide.running = true;
+}
+
+function slideDone() {
+  slide.running = false;
+  const { far, drop } = slide.stats();
+  $("slide-result").textContent = `In this drawing, with friction set by hand, the leading debris ran about ${far.toLocaleString()} m and dropped ${drop} m.`;
+  frameSlide();
+}
+
+// pull back so the crown and the debris are both in view
+function frameSlide() {
+  const { center, size } = slide.extent();
+  const v = scene.view();
+  const dir = v.position.clone().sub(v.target).normalize();
+  const dist = Math.max(fitDistance(size * 1.25, size * 1.25), v.position.distanceTo(v.target));
+  scene.fly(center.clone().add(dir.multiplyScalar(dist)), center, reducedMotion() ? 0 : 1400);
+}
+
+function reducedMotion() {
+  return matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function dropSlide() {
+  slide?.dispose();
+  slide = null;
+  $("slide-result").textContent = "";
+  $("slide-play").textContent = "Play";
+}
+
+let overBeforeBowl = "all";
+function leaveBowl() {
+  if (state.view !== "bowl") return;
+  state.view = null;
+  setOverprint(overBeforeBowl);
+}
+
+function tickSlide(dt) {
+  if (!slide?.running) return;
+  if (!slide.step(dt * SLIDE_SPEED)) slideDone();
+  slide.draw();
+}
+
+function endSlide() {
+  dropSlide();
+  slideFor = null;
+  $("slidebox").hidden = true;
+  $("slide-ctl").hidden = true;
 }
 
 
@@ -876,10 +1115,13 @@ async function boot() {
       state.day = step.day;
       state.snow = true;
       scene.setSnow(true);
-      setOverprint(step.over);
-      if (step.peak) {
-        if (state.peak !== step.peak) await goPeak(step.peak);
+      if (step.bowl) {
+        if (state.view !== "bowl") await goBowl();
+        else planSlide();
+      } else if (step.peak) {
+        if (state.peak !== step.peak || state.view) await goPeak(step.peak);
       } else if (state.peak || !current) await goRegion();
+      setOverprint(step.over);
       setLayer(step.layer || "relief");
       strip.setWinter(winters[step.winter], viewBands());
       setDay(step.day);
@@ -887,7 +1129,14 @@ async function boot() {
     },
   });
   $("open-tour").addEventListener("click", () => tour.start());
-  if (state.peak) await goPeak(state.peak);
+  $("slide-play").addEventListener("click", playSlide);
+  $("slide-back").addEventListener("click", () => goPeak("baldy"));
+  $("slide-storm").addEventListener("click", () => {
+    setDay(biggestStormDay(winters[state.winter]));
+    playSlide();
+  });
+  if (state.view === "bowl") await goBowl();
+  else if (state.peak) await goPeak(state.peak);
   else await goRegion(false);
   syncControls();
 }

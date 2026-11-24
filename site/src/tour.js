@@ -94,6 +94,14 @@ function buildSteps({ winters, model }) {
       layer: "relief",
     },
     {
+      title: "What a slab in Baldy Bowl could look like",
+      text: "The camera drops into the bowl below Baldy's summit. On this simulated storm day the model flags storm slab on these south-east slopes, so the drawing breaks the upper headwall along a crown and slides it down the real fall line. It is a drawing: the model can't say whether or where a real slope would fail.",
+      bowl: true,
+      winter: "typical",
+      day: lastDay,
+      over: "off",
+    },
+    {
       title: "Big winter, dry winter",
       text: `The big winter at its deepest, ${dayDate(peak).label}. Switch to Dry at the bottom to see the same date with almost nothing on the ground. Across 400 winters, days with an elevated problem at 8,500-9,500 ft range from ${model.season_any_days.p10} to ${model.season_any_days.p90}.`,
       peak: "baldy",

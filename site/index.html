@@ -38,6 +38,7 @@
         <div class="scale" id="scale" aria-hidden="true"><div class="bar"></div><span id="scale-label"></span></div>
         <p class="sheet-note" id="sheet-note">34 peaks &middot; 3 ranges</p>
         <p class="status" id="status" role="status" aria-live="polite"></p>
+        <div class="slide-ctl" id="slide-ctl" hidden><button type="button" id="slide-play">Play</button></div>
         <div class="clock" id="clock" hidden>
           <button type="button" class="clock-toggle" id="clock-toggle" aria-pressed="false">Day clock</button>
           <div class="clock-body" id="clock-body" hidden>
@@ -108,6 +109,17 @@
           <p class="strip-key"><span><i class="k-rain"></i>Precipitation, mm of water at 8,500 ft</span><span><i class="k-storm"></i>Storm days</span><span><i class="k-santa"></i>Santa Ana wind</span><span><i class="k-ft"></i>Freeze-thaw, share of snowy slopes that cycled</span><span>Simulated, 15 Nov to 30 Apr</span></p>
         </div>
       </footer>
+
+      <div class="slidebox" id="slidebox" hidden>
+        <h2 id="slide-title"></h2>
+        <p id="slide-why"></p>
+        <p class="slide-note">Illustration, not a simulation of a real avalanche. The model can't say whether, where or how this slope would fail; the blocks just slide down the real fall line.</p>
+        <p class="slide-result" id="slide-result" aria-live="polite"></p>
+        <div class="slide-nav">
+          <button type="button" id="slide-storm" hidden>Biggest storm</button>
+          <button type="button" id="slide-back">Back to Mt. Baldy</button>
+        </div>
+      </div>
 
       <aside class="tour-card" id="tour" hidden aria-live="polite">
         <h2 id="tour-title"></h2>
