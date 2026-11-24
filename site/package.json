@@ -1,0 +1,22 @@
+{
+  "name": "socal-snowpack-sim-site",
+  "private": true,
+  "version": "0.1.0",
+  "description": "3D viewer for the socal-snowpack-sim terrain and simulated winters",
+  "license": "MIT",
+  "author": "Londopy",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8"
+  }
+}

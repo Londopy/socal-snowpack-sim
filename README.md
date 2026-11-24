@@ -1,6 +1,8 @@
 # socal-snowpack-sim
 
-A terrain and snowpack simulator for Southern California ski-touring peaks.
+[![Pages](https://github.com/Londopy/socal-snowpack-sim/actions/workflows/pages.yml/badge.svg)](https://github.com/Londopy/socal-snowpack-sim/actions/workflows/pages.yml) [![3D viewer](https://img.shields.io/badge/3D_viewer-londo.me-2b2a33)](https://londo.me/socal-snowpack-sim/) [![License](https://img.shields.io/github/license/Londopy/socal-snowpack-sim)](LICENSE) ![Python](https://img.shields.io/badge/Python-numpy_%7C_matplotlib-3776AB?logo=python&logoColor=white) ![three.js](https://img.shields.io/badge/three.js-r187-000000?logo=threedotjs&logoColor=white) ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white) ![Terrain](https://img.shields.io/badge/terrain-USGS_3DEP-54668a) ![Peaks](https://img.shields.io/badge/peaks-34-2b4ea2) ![Winters](https://img.shields.io/badge/simulated_winters-400-009a8f) ![Not a forecast](https://img.shields.io/badge/not_an-avalanche_forecast-b23c25) [![Last commit](https://img.shields.io/github/last-commit/Londopy/socal-snowpack-sim)](https://github.com/Londopy/socal-snowpack-sim/commits/main)
+
+**Real terrain for 34 Southern California ski-touring peaks, with 400 simulated winters run over it.**
 
 It takes real elevation data for 34 peaks in the San Gabriel, San Bernardino and San Jacinto
 mountains, works out how steep each one is and which way it faces, and then runs 400
@@ -11,7 +13,40 @@ show up on which aspects and elevations, and for how long.
 > hand-tuned, and nothing here has been validated against field data. It shows patterns to
 > learn from. It cannot tell you whether a slope is safe. See [DISCLAIMER.md](DISCLAIMER.md).
 
-![Slope maps](figures/slope_maps.png)
+<p align="center">
+  <b><a href="https://londo.me/socal-snowpack-sim/">Open the 3D viewer</a></b> &nbsp;&middot;&nbsp;
+  <a href="#what-it-found">What it found</a> &nbsp;&middot;&nbsp;
+  <a href="#peak-by-peak">Peak by peak</a> &nbsp;&middot;&nbsp;
+  <a href="#limits">Limits</a> &nbsp;&middot;&nbsp;
+  <a href="#run-it">Run it</a>
+</p>
+
+<p align="center">
+  <a href="https://londo.me/socal-snowpack-sim/"><img src="docs/storm.gif" width="880" alt="A simulated storm on Mt. Baldy in the 3D viewer: storm-slab hatching spreads over the steep slopes, then fades over the following days"></a>
+  <br>
+  <sub>A simulated storm on Mt. Baldy and the days after it, in the <a href="https://londo.me/socal-snowpack-sim/">3D viewer</a>.</sub>
+</p>
+
+## The 3D viewer
+
+**[londo.me/socal-snowpack-sim](https://londo.me/socal-snowpack-sim/)** puts the model on the real terrain. Pick a peak,
+switch the map, and play a dry, typical or big simulated winter day by day.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/overview.jpg" alt="The three ranges as a painted relief map with all 34 peaks labelled"><br><sub><b>All three ranges.</b> Click a peak to fly in.</sub></td>
+    <td width="50%"><img src="docs/baldy.jpg" alt="Mt. Baldy with storm-slab hatching and wet-snow stipple on its steep slopes"><br><sub><b>Avalanche problems on the slopes.</b> Hatching only on 30 degrees and up.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/freeze.jpg" alt="Freeze-thaw view on Mt. Baldy: ink patterns for slopes that cycled, corn and ice"><br><sub><b>Freeze-thaw.</b> Cycles, corn and ice, with a day clock.</sub></td>
+    <td width="50%"><img src="docs/slope.jpg" alt="Mt. Baldy coloured by slope angle classes from 25 to 45 degrees and steeper"><br><sub><b>Real map layers.</b> Slope angle here; also satellite, USGS topo, lidar and aspect.</sub></td>
+  </tr>
+</table>
+
+- **Map layers:** painted relief, USGS satellite, USGS topo, 3DEP lidar hillshade, slope angle, aspect.
+- **Winter playback:** snow cover and the main avalanche problem on each slope, a day line with the weather, and a small aspect-and-elevation chart per problem.
+- **Freeze-thaw:** which slopes thawed and refroze, corn and ice, with an illustrated day clock on the real sun path.
+- **Findings and a tour:** the range-wide charts below, interactive, and a six-stop walk through them.
 
 ## Why
 
@@ -25,7 +60,9 @@ when the problems are likely, starting from the terrain.
 
 These are model results. Read the limits section before trusting any of them.
 
-**Terrain (real data)**
+### Terrain (real data)
+
+![Slope maps](figures/slope_maps.png)
 
 - The San Gabriel peaks are steep almost everywhere. Around Baldy, Telegraph, Cucamonga, Ontario
   and Baden-Powell, 60 to 72% of the ground near the summit is between 30 and 45 degrees.
@@ -35,7 +72,7 @@ These are model results. Read the limits section before trusting any of them.
   more than half of their steep terrain on N, NE and E slopes, which are lee to typical storm
   winds. Dobbs, Dragon's Head, Marion and Cucamonga are mostly sun-facing.
 
-**Simulated snowpack**
+### Simulated snowpack
 
 - **Storm slab is the main avalanche problem on every aspect.** About 12 days a winter at
   8,500-9,500 ft, 16 at 10,500-11,500 ft.
@@ -81,7 +118,8 @@ terrain (slopes of 30 degrees or more within 1.5 km of the summit and no more th
 it). "N+NE+E share" is how much of the 30-45 degree terrain faces those lee aspects. Zones of
 neighbouring peaks overlap.
 
-### Baldy area
+<details>
+<summary><b>Baldy area</b> (7 peaks)</summary>
 
 | Peak | Summit (ft) | 30-45 deg | Steep terrain mostly faces | N+NE+E share | Storm slab days | Wind slab days | Wet (% of snow days) | Persistent days | Freeze-thaw cycles | Snow-cover days |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -93,7 +131,10 @@ neighbouring peaks overlap.
 | Telegraph Peak | 8,977 | 72% | S | 33% | 8 | 0.8 | 18% | 0.0 | 20 | 42 |
 | Timber Mountain | 8,292 | 69% | NE | 45% | 7 | 0.7 | 18% | 0.0 | 15 | 36 |
 
-### Cucamonga / Icehouse
+</details>
+
+<details>
+<summary><b>Cucamonga / Icehouse</b> (3 peaks)</summary>
 
 | Peak | Summit (ft) | 30-45 deg | Steep terrain mostly faces | N+NE+E share | Storm slab days | Wind slab days | Wet (% of snow days) | Persistent days | Freeze-thaw cycles | Snow-cover days |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -101,13 +142,19 @@ neighbouring peaks overlap.
 | Bighorn Peak | 8,440 | 63% | SE | 34% | 7 | 0.6 | 18% | 0.0 | 16 | 38 |
 | Ontario Peak | 8,690 | 69% | W | 34% | 7 | 0.6 | 19% | 0.0 | 16 | 37 |
 
-### Wrightwood / Blue Ridge
+</details>
+
+<details>
+<summary><b>Wrightwood / Blue Ridge</b> (1 peak)</summary>
 
 | Peak | Summit (ft) | 30-45 deg | Steep terrain mostly faces | N+NE+E share | Storm slab days | Wind slab days | Wet (% of snow days) | Persistent days | Freeze-thaw cycles | Snow-cover days |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Wright Mountain | 8,512 | 54% | N | 57% | 7 | 1.0 | 15% | 0.0 | 18 | 48 |
 
-### Angeles Crest
+</details>
+
+<details>
+<summary><b>Angeles Crest</b> (8 peaks)</summary>
 
 | Peak | Summit (ft) | 30-45 deg | Steep terrain mostly faces | N+NE+E share | Storm slab days | Wind slab days | Wet (% of snow days) | Persistent days | Freeze-thaw cycles | Snow-cover days |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -120,7 +167,10 @@ neighbouring peaks overlap.
 | Mt. Williamson | 8,215 | 68% | SE | 43% | 6 | 0.6 | 19% | 0.0 | 13 | 34 |
 | Waterman Mountain | 8,021 | 26% | SE | 30% | 6 | 0.4 | 19% | 0.0 | 11 | 32 |
 
-### San Gorgonio Wilderness
+</details>
+
+<details>
+<summary><b>San Gorgonio Wilderness</b> (11 peaks)</summary>
 
 | Peak | Summit (ft) | 30-45 deg | Steep terrain mostly faces | N+NE+E share | Storm slab days | Wind slab days | Wet (% of snow days) | Persistent days | Freeze-thaw cycles | Snow-cover days |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -136,19 +186,27 @@ neighbouring peaks overlap.
 | San Bernardino Peak | 10,655 | 51% | SE | 26% | 11 | 1.7 | 11% | 0.4 | 48 | 71 |
 | Grinnell Mountain | 10,302 | 26% | NE | 79% | 12 | 3.6 | 8% | 0.6 | 51 | 89 |
 
-### Big Bear
+</details>
+
+<details>
+<summary><b>Big Bear</b> (1 peak)</summary>
 
 | Peak | Summit (ft) | 30-45 deg | Steep terrain mostly faces | N+NE+E share | Storm slab days | Wind slab days | Wet (% of snow days) | Persistent days | Freeze-thaw cycles | Snow-cover days |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Sugarloaf Mountain | 9,940 | 24% | S | 26% | 10 | 1.3 | 12% | 0.2 | 39 | 62 |
 
-### San Jacinto
+</details>
+
+<details>
+<summary><b>San Jacinto</b> (3 peaks)</summary>
 
 | Peak | Summit (ft) | 30-45 deg | Steep terrain mostly faces | N+NE+E share | Storm slab days | Wind slab days | Wet (% of snow days) | Persistent days | Freeze-thaw cycles | Snow-cover days |
 |---|---|---|---|---|---|---|---|---|---|---|
 | San Jacinto Peak | 10,826 | 35% | N | 60% | 12 | 3.1 | 8% | 0.7 | 56 | 93 |
 | Jean Peak | 10,659 | 13% | SE | 47% | 13 | 3.6 | 7% | 0.8 | 62 | 89 |
 | Marion Mountain | 10,336 | 22% | SE | 5% | 10 | 0.9 | 15% | 0.0 | 38 | 52 |
+
+</details>
 
 ![Peak comparison](figures/peak_comparison.png)
 
@@ -177,6 +235,9 @@ Per-peak slope maps are in [figures/peaks](figures/peaks). Full numbers are in
 
 ## Reality check
 
+<details>
+<summary>How the model lines up with what has been written about these mountains</summary>
+
 Not validation, just a comparison with what has been written about these mountains:
 
 | Documented | Model |
@@ -188,6 +249,8 @@ Not validation, just a comparison with what has been written about these mountai
 | Hard ice and long sliding falls are the main killer on Baldy | Refrozen surface is exposed on most snow-covered days between storms |
 
 Some of this agreement is built in by the rules, so treat it as a consistency check.
+
+</details>
 
 ## Limits
 
@@ -215,7 +278,29 @@ python src/analyze.py     # figures/ and results/
 Add a peak by adding a line to `src/peaks.py`. `terrain.py` will flag it if the coordinates
 don't land on a summit of the listed height.
 
+### The 3D viewer
+
+The viewer lives in `site/` (Vite and three.js). Its data in `site/public/data/` is committed, so
+you only need Node to work on the page:
+
+```
+cd site
+npm install
+npm run dev               # http://localhost:5173/socal-snowpack-sim/
+```
+
+After changing the model or the peak list, rebuild that data with
+`python src/export_site.py` (after the three steps above). It writes finer elevation grids, pulls
+a lidar hillshade for each peak from the USGS 3DEP service (slow the first time, cached in
+`data/lidar/`), and re-runs the dry, typical and big winters with the same seed as `model.py`.
+Satellite and topo layers load live from the USGS National Map.
+
+Pushes to `main` that touch `site/` deploy it to GitHub Pages.
+
 ## Where this could go
+
+<details>
+<summary>What it would take to drive this with real weather</summary>
 
 The obvious next step is to drive the snowpack model with real weather instead of simulated
 weather. Before anything like that is shown to the public it needs, at minimum:
@@ -224,6 +309,8 @@ weather. Before anything like that is shown to the public it needs, at minimum:
 - validation against snow-pit and avalanche observations over several winters;
 - input from the So Cal Snow Avalanche Center and local forecasters and guides;
 - output framed as conditions and patterns, not danger ratings, with uncertainty shown.
+
+</details>
 
 ## Data and credits
 
@@ -234,5 +321,8 @@ weather. Before anything like that is shown to the public it needs, at minimum:
 - Accident and conditions history: SierraDescents, SnowBrains, Los Angeles Times, LAist,
   NBC Los Angeles, SummitPost, The Snowy Torrents.
 - Snowfall comparison: OnTheSnow.
+- Viewer: lidar hillshade from the USGS 3DEP elevation service, satellite and topo from the
+  USGS National Map (public domain); built with three.js and Vite (MIT) and set in Barlow
+  (SIL Open Font License).
 
 MIT licensed. See [LICENSE](LICENSE).
