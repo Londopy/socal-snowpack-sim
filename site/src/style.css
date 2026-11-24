@@ -220,6 +220,9 @@ h2, legend {
   font-size: 13px;
 }
 .status:empty { display: none; }
+/* failures must show over the slide panel, which sits on the same corner */
+.status { z-index: 4; }
+.slide-ctl { position: absolute; left: 12px; bottom: 84px; }
 .status.error { border-color: var(--red); color: var(--red); }
 .dayline {
   position: absolute;
@@ -238,6 +241,37 @@ h2, legend {
 #dayline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .disclaim { flex: none; color: #c9c7cf; font-weight: 500; letter-spacing: 0.04em; }
 .dayline b { font-weight: 600; color: #f0b9a8; }
+.slidebox {
+  grid-area: frame;
+  align-self: start;
+  justify-self: end;
+  z-index: 3;
+  margin: 44px 14px 0 0;
+  width: min(320px, calc(100% - 28px));
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  padding: 10px 12px;
+  font-size: 13.5px;
+}
+.slidebox h2 { font-size: 14px; margin-bottom: 4px; }
+.slidebox p { margin: 0 0 8px; }
+.slide-note { color: var(--ink-2); font-size: 12.5px; }
+.slide-result:empty { display: none; }
+.slide-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+.slide-ctl button, .slide-nav button, .bowl-link button {
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  padding: 5px 10px 4px;
+  font: 600 12.5px var(--cond);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.slide-ctl button, .bowl-link button { background: var(--ink); color: var(--paper); }
+.slide-ctl button:hover, .slide-nav button:hover, .bowl-link button:hover { background: var(--red); border-color: var(--red); color: var(--paper); }
+.bowl-link { margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.bowl-link h2 { margin-bottom: 4px; }
+.bowl-link p { margin: 0 0 8px; font-size: 13.5px; color: var(--ink-2); }
 .clock {
   position: absolute;
   right: 12px;
@@ -460,6 +494,7 @@ table.peaks tbody tr:hover { background: var(--red-soft); }
   .strip { padding-right: 20px; }
   .panel { left: 200px; }
   .tour-card { left: 220px; }
+  .slidebox { width: 250px; font-size: 13px; }
 }
 
 @media (max-width: 860px) {
@@ -467,7 +502,7 @@ table.peaks tbody tr:hover { background: var(--red-soft); }
   .title { order: 1; }
   .frame { order: 2; height: 62dvh; flex: none; }
   /* on phones and tablets the tour card joins the page under the map, so it never covers the timeline */
-  .tour-card { order: 3; position: static; width: auto; margin: 10px 10px 0; }
+  .tour-card, .slidebox { order: 3; position: static; width: auto; margin: 10px 10px 0; }
   .strip { order: 4; }
   .legend { order: 5; }
   .index { order: 6; }
@@ -498,6 +533,7 @@ table.peaks tbody tr:hover { background: var(--red-soft); }
   #dayline { white-space: normal; }
   .clock { left: auto; right: 10px; top: 38px; bottom: auto; width: min(250px, calc(100% - 70px)); }
   .scale { bottom: 80px; }
+  .slide-ctl { bottom: 116px; }
   .exag { bottom: 80px; }
   /* the phone overview looks east, so the ranges' far end is the top-right corner;
      keep that corner for peak names and set the sheet note beside the north arrow */

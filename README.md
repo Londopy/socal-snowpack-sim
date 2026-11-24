@@ -46,7 +46,7 @@ switch the map, and play a dry, typical or big simulated winter day by day.
 - **Map layers:** painted relief, USGS satellite, USGS topo, 3DEP lidar hillshade, slope angle, aspect.
 - **Winter playback:** snow cover and the main avalanche problem on each slope, a day line with the weather, and a small aspect-and-elevation chart per problem.
 - **Freeze-thaw:** which slopes thawed and refroze, corn and ice, with an illustrated day clock on the real sun path.
-- **Findings and a tour:** the range-wide charts below, interactive, and a six-stop walk through them.
+- **Findings and a tour:** the range-wide charts below, interactive, and a seven-stop walk through them, ending with a drawn slab release in Baldy Bowl.
 
 ## Why
 

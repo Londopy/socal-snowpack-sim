@@ -7,6 +7,11 @@ what appears on its GitHub release page.
 
 ## [Unreleased]
 
+### Added
+
+- A Baldy Bowl close-up on 3 m USGS terrain with a drawn slab release. It plays only when the model flags the
+  headwall's slopes, and is labelled as a drawing, not a prediction.
+
 ### Fixed
 
 - The tour card no longer covers the winter timeline on phones and tablets, or the day line on desktop.

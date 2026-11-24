@@ -32,6 +32,9 @@ and runs courses.</p>
   slope that is safe at 8 am and dangerous at noon.</li>
   <li>The grid smooths the steepest pitches. Headwalls and chutes are steeper than they map.</li>
   <li>Below 6,600 ft the model has no band, so the map fades the snow out there.</li>
+  <li>The Baldy Bowl slide is a drawing. The release zone comes from the terrain, it only plays when the model flags the
+  zone's slopes, and the blocks slide down the real fall line with friction set by hand. Its thickness, run-out and drop
+  are not predictions.</li>
 </ul>
 
 <h3>Keys</h3>
