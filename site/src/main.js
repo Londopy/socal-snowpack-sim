@@ -554,25 +554,32 @@ function updateMarkers() {
     m.h ||= m.label.offsetHeight;
     const { x, y } = m.s;
     const side = m.w / 2 + 9;
+    // above the triangle: centred, or slid so the triangle sits under one end (for labels near an edge)
+    const above = (up, dx) => ({
+      dx,
+      dy: -up,
+      lead: up,
+      r: { x0: x + dx - m.w / 2 - 2, x1: x + dx + m.w / 2 + 2, y0: y - 12 - m.h - up, y1: y - 11 - up },
+      line: up ? { x0: x - 1, x1: x + 1, y0: y - 11 - up, y1: y - 11 } : null,
+    });
+    const slide = m.w / 2 - 6;
     const spots = [
-      { dx: 0, dy: 0, r: { x0: x - m.w / 2 - 2, x1: x + m.w / 2 + 2, y0: y - 12 - m.h, y1: y - 11 } },
+      above(0, 0),
       { dx: side, dy: m.h - 1, r: { x0: x + 7, x1: x + 9 + m.w, y0: y - m.h - 1, y1: y + 1 } },
       { dx: -side, dy: m.h - 1, r: { x0: x - 9 - m.w, x1: x - 7, y0: y - m.h - 1, y1: y + 1 } },
-      ...[16, 32].map((up) => ({
-        dx: 0,
-        dy: -up,
-        lead: up,
-        r: { x0: x - m.w / 2 - 2, x1: x + m.w / 2 + 2, y0: y - 12 - m.h - up, y1: y - 11 - up },
-        line: { x0: x - 1, x1: x + 1, y0: y - 11 - up, y1: y - 11 },
-      })),
+      above(0, -slide),
+      above(0, slide),
+      ...[16, 32, 48].flatMap((up) => [above(up, 0), above(up, -slide), above(up, slide)]),
     ];
     const major = m.el.dataset.rank >= 2e4;
+    // a leader may run down through its own cluster's triangles, but never through a name
     const spot =
-      spots.find((c) => !hit(c.r) && !(c.line && hit(c.line))) ||
+      spots.find((c) => !hit(c.r) && !(c.line && hitLabels(c.line))) ||
       (major ? spots.find((c) => !hitLabels(c.r) && !(c.line && hitLabels(c.line))) : null);
     m.el.classList.toggle("nolabel", !spot);
     m.label.style.transform = spot ? `translate(${spot.dx}px, ${spot.dy}px)` : "";
     m.el.style.setProperty("--lead", `${spot?.lead || 0}px`);
+    m.el.style.setProperty("--lead-x", `${-(spot?.dx || 0)}px`);
     if (spot) boxes.push(spot.r);
     if (spot?.line) boxes.push(spot.line);
   }

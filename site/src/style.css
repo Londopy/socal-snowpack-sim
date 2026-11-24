@@ -173,7 +173,7 @@ h2, legend {
 .marker span::after {
   content: "";
   position: absolute;
-  left: 50%;
+  left: calc(50% + var(--lead-x, 0px));
   top: 100%;
   width: 1px;
   height: var(--lead, 0px);
@@ -262,7 +262,7 @@ h2, legend {
 
 .legend { grid-area: legend; overflow-y: auto; padding: 0 28px 20px 20px; }
 /* fade the foot of the scrolling legend so a cut line reads as "more below" */
-.legend.more { mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), rgb(0 0 0 / 0.35)); }
+.legend.more { mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), rgb(0 0 0 / 0.6)); }
 .tabs { display: none; }
 fieldset { border: 0; margin: 0 0 18px; padding: 0; min-width: 0; }
 legend { padding: 0; margin-bottom: 8px; }
@@ -497,7 +497,9 @@ table.peaks tbody tr:hover { background: var(--red-soft); }
   .clock { left: auto; right: 10px; top: 38px; bottom: auto; width: min(250px, calc(100% - 70px)); }
   .scale { bottom: 80px; }
   .exag { bottom: 80px; }
-  .sheet-note { top: 8px; }
+  /* the phone overview looks east, so the ranges' far end is the top-right corner;
+     keep that corner for peak names and set the sheet note beside the north arrow */
+  .sheet-note { top: 22px; right: auto; left: 62px; }
   .panel { left: 0; border-left: 0; }
   .panel > header, .panel-body { padding-left: 16px; padding-right: 16px; }
   .charts { grid-template-columns: 1fr; }
