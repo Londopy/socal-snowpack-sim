@@ -28,7 +28,8 @@ class State:
     mf_cycles: np.ndarray        # melt-freeze cycles since the last real snowfall
     hours_since_snow: np.ndarray
     melt_since_mm: np.ndarray    # water through the pack since the weak layer was buried
-    thawed: np.ndarray           # surface has held water since it last refroze
+    thaw_h: np.ndarray           # hours the surface has held water since it last refroze
+    since_wet_h: np.ndarray      # hours since the surface was last wet
     hour_index: int
 
 
@@ -40,7 +41,7 @@ def empty_state(lead, p):
                  facet=np.zeros(layers), liquid_mm=np.zeros(layers),
                  new_mm=z, dry_mm=z.copy(), wind_slab=z.copy(), bond_bad=z.copy(), mf_cycles=z.copy(),
                  hours_since_snow=np.full(zone, p.daily.age_init_days * 24), melt_since_mm=z.copy(),
-                 thawed=np.zeros(zone, bool), hour_index=0)
+                 thaw_h=z.copy(), since_wet_h=np.full(zone, p.daily.age_init_days * 24), hour_index=0)
 
 
 def top(s):

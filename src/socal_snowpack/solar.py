@@ -57,6 +57,15 @@ def solar_tables(p):
     return mean, peak
 
 
+def hourly_flat(doy, hour, p):
+    """Mean clear-sky irradiance (W/m2) over one hour on flat ground."""
+    s = p.solar
+    hours = hour + np.arange(s.substeps_per_hour) / s.substeps_per_hour
+    sin_el, _, _ = _sun(doy, hours, math.radians(LAT))
+    direct, diffuse = _clear_sky(sin_el, s)
+    return float((direct * np.maximum(sin_el, 0) + diffuse).mean())
+
+
 def hourly_irradiance(doy, hour, p, horizon=None):
     """Mean clear-sky irradiance (W/m2) over one hour on the 38-degree slope.
 
