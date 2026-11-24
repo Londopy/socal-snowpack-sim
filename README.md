@@ -11,6 +11,11 @@ show up on which aspects and elevations, and for how long.
 > hand-tuned, and nothing here has been validated against field data. It shows patterns to
 > learn from. It cannot tell you whether a slope is safe. See [DISCLAIMER.md](DISCLAIMER.md).
 
+To look around instead of reading, open the 3D viewer at
+[londo.me/socal-snowpack-sim](https://londo.me/socal-snowpack-sim/). Pick a peak, switch between
+painted relief, satellite, USGS topo, lidar hillshade, slope and aspect, and play a dry, typical or
+big simulated winter day by day on the real terrain.
+
 ![Slope maps](figures/slope_maps.png)
 
 ## Why
@@ -215,6 +220,25 @@ python src/analyze.py     # figures/ and results/
 Add a peak by adding a line to `src/peaks.py`. `terrain.py` will flag it if the coordinates
 don't land on a summit of the listed height.
 
+### The 3D viewer
+
+The viewer lives in `site/` (Vite and three.js). Its data in `site/public/data/` is committed, so
+you only need Node to work on the page:
+
+```
+cd site
+npm install
+npm run dev               # http://localhost:5173/socal-snowpack-sim/
+```
+
+After changing the model or the peak list, rebuild that data with
+`python src/export_site.py` (after the three steps above). It writes finer elevation grids, pulls
+a lidar hillshade for each peak from the USGS 3DEP service (slow the first time, cached in
+`data/lidar/`), and re-runs the dry, typical and big winters with the same seed as `model.py`.
+Satellite and topo layers load live from the USGS National Map.
+
+Pushes to `main` that touch `site/` deploy it to GitHub Pages.
+
 ## Where this could go
 
 The obvious next step is to drive the snowpack model with real weather instead of simulated
@@ -234,5 +258,8 @@ weather. Before anything like that is shown to the public it needs, at minimum:
 - Accident and conditions history: SierraDescents, SnowBrains, Los Angeles Times, LAist,
   NBC Los Angeles, SummitPost, The Snowy Torrents.
 - Snowfall comparison: OnTheSnow.
+- Viewer: lidar hillshade from the USGS 3DEP elevation service, satellite and topo from the
+  USGS National Map (public domain); built with three.js and Vite (MIT) and set in Barlow
+  (SIL Open Font License).
 
 MIT licensed. See [LICENSE](LICENSE).
