@@ -151,3 +151,6 @@ ice_morning_only = 0.5       # ice that softens at midday
 ice_rain_mm = 5.0
 corn_sun_wm2 = 20.0
 dry_day_rain_mm = 1.0
+
+[hourly]
+snow_transition_m = 150.0    # narrowest rain/snow transition, used when the snow level sd is smaller
