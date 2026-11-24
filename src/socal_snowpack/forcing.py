@@ -37,7 +37,11 @@ def snow_fraction(bands_m, snow_level_m, sd_m, precip_mm, p):
         raise ValueError("precip with no snow level")
     width = np.maximum(sd, p.hourly.snow_transition_m)
     z = np.where(wet, (bands_m - np.nan_to_num(level)) / width, 0.0)
-    return np.where(wet, 0.5 * (1 + _erf(z / math.sqrt(2))), 0.0)
+    frac = 0.5 * (1 + _erf(z / math.sqrt(2)))
+    # the normal tails would put a trace of rain into every cold storm and snow into every warm one
+    lo = p.hourly.snow_frac_min
+    frac = np.where(frac < lo, 0.0, np.where(frac > 1 - lo, 1.0, frac))
+    return np.where(wet, frac, 0.0)
 
 
 def hourly_from_daily(wx, d, p):

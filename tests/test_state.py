@@ -5,7 +5,7 @@ import pytest
 
 from socal_snowpack.grid import NB
 from socal_snowpack.params import load_params
-from socal_snowpack.state import (CRUST, NEW, SETTLED, add_snow, buried_weak, empty_state,
+from socal_snowpack.state import (CRUST, FACET, NEW, SETTLED, add_snow, buried_weak, empty_state,
                                   load_state, save_state, top)
 
 P = load_params()
@@ -92,3 +92,47 @@ def test_lead_shape():
     s = empty_state((34,), P)
     assert s.new_mm.shape == (34, NB, 8)
     assert s.swe_mm.shape == (P.hourly.max_layers, 34, NB, 8)
+
+
+def test_merge_keeps_a_weak_layer():
+    s = empty_state((), P)
+    for _ in range(P.hourly.max_layers):
+        s = add_snow(aged(s, 24), snow(10), P)
+    second = np.arange(P.hourly.max_layers)[:, None, None] == 1
+    s = dataclasses.replace(s, kind=np.where(second, FACET, s.kind).astype(np.int8),
+                            facet=np.where(second, 0.5, s.facet))
+    s = add_snow(aged(s, 24), snow(10), P)
+    weak, _ = buried_weak(s, P)
+    assert (weak == 0.5).all()
+
+
+def test_round_trip_keeps_every_field_apart(tmp_path):
+    rng = np.random.default_rng(0)
+    s = empty_state((2,), P)
+    s = dataclasses.replace(s, **{f.name: rng.random(getattr(s, f.name).shape).astype(getattr(s, f.name).dtype)
+                                  for f in dataclasses.fields(s) if f.name not in ("kind", "hour_index")},
+                            hour_index=1234)
+    save_state(s, tmp_path / "state.npz")
+    back = load_state(tmp_path / "state.npz")
+    for f in dataclasses.fields(s):
+        assert np.array_equal(getattr(s, f.name), getattr(back, f.name)), f.name
+
+
+def test_save_and_load_agree_on_the_path(tmp_path):
+    path = tmp_path / "baldy-2026-12-01"
+    save_state(empty_state((), P), path)
+    assert load_state(path).hour_index == 0
+
+
+def test_failed_save_keeps_the_old_file(tmp_path, monkeypatch):
+    path = tmp_path / "state.npz"
+    save_state(empty_state((), P), path)
+
+    def broken(file, **arrays):
+        open(file, "wb").write(b"half a file")
+        raise OSError("disk full")
+    monkeypatch.setattr("socal_snowpack.state.np.savez_compressed", broken)
+    later = dataclasses.replace(empty_state((), P), hour_index=99)
+    with pytest.raises(OSError):
+        save_state(later, path)
+    assert load_state(path).hour_index == 0

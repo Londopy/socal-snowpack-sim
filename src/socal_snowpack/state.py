@@ -3,6 +3,7 @@
 Layer arrays are shaped (L, ..., NB, 8) with layer 0 at the bottom and layers packed
 from the bottom up. Zone arrays are shaped (..., NB, 8).
 """
+import os
 from dataclasses import dataclass, fields, replace
 
 import numpy as np
@@ -61,7 +62,8 @@ def _merge_bottom(s, full):
         if name in ("swe_mm", "liquid_mm"):
             bottom = a[0] + a[1]
         elif name == "kind":
-            bottom = np.full_like(a[0], SETTLED)
+            weak = (a[:2] == FACET) | (a[:2] == CRUST)
+            bottom = np.where(weak[1], a[1], np.where(weak[0], a[0], SETTLED)).astype(a.dtype)
         else:
             bottom = np.maximum(a[0], a[1])
         shifted = np.concatenate([bottom[None], a[2:], np.zeros_like(a[:1])], axis=0)
@@ -70,12 +72,13 @@ def _merge_bottom(s, full):
 
 
 def add_snow(s, snow_mm, p):
-    """Put new snow (mm SWE) on top: onto a young NEW layer, else as a new layer."""
+    """Put new snow (mm SWE) on top: onto a young, dry NEW layer, else as a new layer."""
     L = s.swe_mm.shape[0]
     snow = np.broadcast_to(snow_mm, s.new_mm.shape)
     falls = snow > 0
     t = top(s)
-    join = falls & (t >= 0) & (top_value(s.kind, t) == NEW) & (top_value(s.age_h, t) < p.hourly.new_layer_hours)
+    young = (top_value(s.kind, t) == NEW) & (top_value(s.age_h, t) < p.hourly.new_layer_hours)
+    join = falls & (t >= 0) & young & (top_value(s.liquid_mm, t) <= p.hourly.damp_mm)
     push = falls & ~join
     full = push & (t == L - 1)
     layers = _merge_bottom(s, full)
@@ -103,11 +106,25 @@ def buried_weak(s, p):
     return weak, load
 
 
+def _npz(path):
+    path = str(path)
+    return path if path.endswith(".npz") else path + ".npz"
+
+
 def save_state(s, path):
-    np.savez_compressed(path, version=np.array(VERSION), **{f.name: getattr(s, f.name) for f in fields(s)})
+    """Write state to path (".npz" added if missing), replacing any old file only once the new one is complete."""
+    final = _npz(path)
+    tmp = final[:-4] + ".tmp.npz"
+    try:
+        np.savez_compressed(tmp, version=np.array(VERSION), **{f.name: getattr(s, f.name) for f in fields(s)})
+        os.replace(tmp, final)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 def load_state(path):
+    path = _npz(path)
     with np.load(path) as z:
         if int(z["version"]) != VERSION:
             raise ValueError(f"state file {path} is version {int(z['version'])}, this code reads version {VERSION}")

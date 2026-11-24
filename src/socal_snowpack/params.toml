@@ -154,6 +154,8 @@ dry_day_rain_mm = 1.0
 
 [hourly]
 snow_transition_m = 150.0    # narrowest rain/snow transition, used when the snow level sd is smaller
+snow_frac_min = 0.01         # snow or rain shares below this count as none
+damp_mm = 0.01               # surface water below this counts as dry
 max_layers = 16
 new_layer_hours = 6.0        # snow within this many hours joins the same layer
 bury_mm = 12.0               # SWE over a weak layer before it counts as buried
@@ -168,5 +170,3 @@ wet_recent_h = 24.0          # the daily model's "wetted today"
 no_refreeze_h = 24.0         # thawed this long without refreezing
 powder_max_age_h = 72.0
 scour_surface = 0.3
-min_flat_wm2 = 20.0          # below this the measured-sun ratio is not used
-max_slope_ratio = 3.0

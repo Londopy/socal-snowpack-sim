@@ -103,3 +103,15 @@ def test_step_is_fast():
         s, _ = step(s, f, P)
         times.append(time.perf_counter() - t0)
     assert np.median(times) < 0.020
+
+
+def test_persistent_shows_up_high_and_shaded(runs):
+    _, _, new = runs
+    assert days(new, "persistent")[4, N] > 0.5
+
+
+def test_corn_on_sunny_slopes(runs):
+    _, _, new = runs
+    snow = (new["swe"] > 20).sum(axis=1).mean(axis=0)
+    corn = new["corn"].sum(axis=1).mean(axis=0) / np.maximum(snow, 1)
+    assert corn[MID, S] > corn[MID, N]

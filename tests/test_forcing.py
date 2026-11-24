@@ -51,3 +51,13 @@ def test_hourly_from_daily_conserves_the_day():
     np.testing.assert_allclose(t.mean(axis=0), wx["Tm"][d] + dz, atol=1e-9)
     np.testing.assert_allclose(t.max(axis=0), wx["Tmax"][d] + dz, atol=1e-9)
     np.testing.assert_allclose(t.min(axis=0), wx["Tmin"][d] + dz, atol=1e-9)
+
+
+def test_cold_storm_has_no_trace_rain():
+    f = snow_fraction(BANDS_M, 1750.0, 0.0, 4.0, P)
+    assert (f == 1.0).all()
+
+
+def test_warm_rain_has_no_trace_snow():
+    f = snow_fraction(np.array([2150.0, 2450.0]), 3000.0, 0.0, 2.0, P)
+    assert (f == 0.0).all()

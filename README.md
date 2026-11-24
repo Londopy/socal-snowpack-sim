@@ -243,7 +243,7 @@ snow level that might be 500 ft off shows up as mixed rain and snow instead of a
 
 `tests/test_reproduce.py` runs 30 simulated winters through both models and checks that the
 hourly one reproduces the daily one's findings. It does, with these differences: it melts
-sun-facing slopes out sooner (south slopes at 8,500-9,500 ft keep snow about 28 days a winter
+sun-facing slopes out sooner (south slopes at 8,500-9,500 ft keep snow about 30 days a winter
 against 51), its wet index runs higher on sunny afternoons, and it grows fewer facets, because
 they only grow in the cold hours instead of all day. It is no more calibrated than the daily
 model.

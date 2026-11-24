@@ -18,7 +18,7 @@ from .state import CRUST, EMPTY, FACET, NEW, SETTLED, add_snow, buried_weak, top
 NONE, POWDER, WIND, FIRM, ICE, SOFT, WET = range(7)
 SURFACE_NAMES = ["none", "powder", "wind-affected", "firm", "ice", "soft", "wet"]
 DAY_H = 24.0
-_CHECKED = ("t_c", "wind_ms", "wind_from_deg", "cloud")
+_CHECKED = ("t_c", "precip_mm", "snow_level_sd_m", "wind_ms", "wind_from_deg", "cloud", "sw_down")
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,7 @@ class Hourly:
     snow_mm: np.ndarray
     swe_mm: np.ndarray
     liquid_mm: np.ndarray
+    runoff_mm: np.ndarray
     cycle: np.ndarray
 
 
@@ -58,9 +59,8 @@ def _snowfall(s, snow, p):
     landing = (snow > 0) & (s.new_mm < q.bare_new_mm) & weak_top & (total > q.crust_min_swe_mm)
     s = replace(s, bond_bad=np.where(landing, 1.0, s.bond_bad),
                 melt_since_mm=np.where(landing, 0.0, s.melt_since_mm))
+    real = (snow > 0) & (s.new_mm + snow >= q.snow_event_mm)
     s = add_snow(s, snow, p)
-    t = top(s)
-    real = (snow > 0) & (top_value(s.kind, t) == NEW) & (top_value(s.swe_mm, t) >= q.snow_event_mm)
     return replace(s, new_mm=s.new_mm + snow, dry_mm=s.dry_mm + snow,
                    hours_since_snow=np.where(real, 0.0, s.hours_since_snow),
                    mf_cycles=np.where(real, 0.0, s.mf_cycles),
@@ -88,8 +88,7 @@ def _sun(s, f, p, horizon):
     if f.sw_down is None:
         return g * (1 - p.daily.cloud_block * f.cloud)
     flat = hourly_flat(f.doy, f.hour, p)
-    ratio = np.minimum(g / max(flat, p.hourly.min_flat_wm2), p.hourly.max_slope_ratio)
-    return f.sw_down * ratio * (flat > p.hourly.min_flat_wm2)
+    return f.sw_down * g / flat if flat > 0 else np.zeros_like(g)
 
 
 def _energy(s, f, p, horizon):
@@ -99,38 +98,62 @@ def _energy(s, f, p, horizon):
     return np.broadcast_to(e, s.new_mm.shape)
 
 
-def _water(s, e, rain, p):
-    """Melt or refreeze the top layer, add rain, and drain what the surface can't hold."""
-    h = p.hourly
-    t = top(s)
+def _melt(s, e, p):
+    """Melt down from the top with this hour's energy. Returns the state, melt (mm) and the
+    liquid freed from layers that melted away."""
     has = s.swe_mm.sum(axis=0) > p.daily.has_snow_mm
+    potential = np.where(has, np.maximum(e, 0) * p.hourly.melt_mm_per_wm2_hour, 0.0)
+    from_top = np.cumsum(s.swe_mm[::-1], axis=0)[::-1]
+    swe = np.clip(from_top - potential, 0, s.swe_mm)
+    gone = (s.swe_mm > 0) & (swe <= 0)
+    freed = np.where(gone, s.liquid_mm, 0.0).sum(axis=0)
+    melt = (s.swe_mm - swe).sum(axis=0)
+    s = replace(s, swe_mm=np.where(gone, 0.0, swe), liquid_mm=np.where(gone, 0.0, s.liquid_mm),
+                kind=np.where(gone, EMPTY, s.kind).astype(np.int8), facet=np.where(gone, 0.0, s.facet),
+                age_h=np.where(gone, 0.0, s.age_h))
+    return s, melt, freed
+
+
+def _freeze_buried(s, p):
+    """Water left under new snow refreezes; enough of it makes a crust."""
+    t = top(s)
+    idx = np.arange(s.swe_mm.shape[0]).reshape((-1,) + (1,) * t.ndim)
+    liq = np.where(idx < t, s.liquid_mm, 0.0)
+    kind = np.where(liq > p.hourly.soft_liquid_mm, CRUST, s.kind).astype(np.int8)
+    return replace(s, swe_mm=s.swe_mm + liq, liquid_mm=s.liquid_mm - liq, kind=kind)
+
+
+def _water(s, e, rain, p):
+    """Melt, refreeze buried water, add rain, refreeze at the surface when losing heat, and run off
+    what the surface can't hold."""
+    h = p.hourly
+    rain_in = np.where(s.swe_mm.sum(axis=0) > p.daily.has_snow_mm, rain, 0.0)
+    s, melt, freed = _melt(s, e, p)
+    s = _freeze_buried(s, p)
+    t = top(s)
     swe, liq = top_value(s.swe_mm, t), top_value(s.liquid_mm, t)
-    melt = np.where(has, np.minimum(np.maximum(e, 0) * h.melt_mm_per_wm2_hour, swe), 0.0)
-    frz = np.where(has & (e < 0), np.minimum(liq, -e * h.melt_mm_per_wm2_hour), 0.0)
-    rain_in = np.where(has, rain, 0.0)
-    swe = swe - melt + frz
-    liq = liq + melt + rain_in - frz
-    drain = np.maximum(liq - h.liquid_hold_frac * np.minimum(swe, h.surface_mm), 0)
-    liq = liq - drain
-    gone = (t >= 0) & (swe <= 0)
-    drain = drain + np.where(gone, liq, 0.0)
-    liq = np.where(gone, 0.0, liq)
-    wet_now = (liq > h.soft_liquid_mm) | (drain > 0) | (rain_in > h.rain_wet_mm_h)
-    s = replace(s, swe_mm=with_top(s.swe_mm, t, np.where(gone, 0.0, swe)),
-                liquid_mm=with_top(s.liquid_mm, t, liq),
-                kind=with_top(s.kind, t, np.where(gone, EMPTY, top_value(s.kind, t))),
-                facet=with_top(s.facet, t, np.where(gone, 0.0, top_value(s.facet, t))),
-                melt_since_mm=s.melt_since_mm + drain + rain_in,
-                thaw_h=np.where((s.thaw_h > 0) | (liq > 0), s.thaw_h + 1, 0.0),
+    frz = np.where(e < 0, np.minimum(liq, -e * h.melt_mm_per_wm2_hour), 0.0)
+    swe = swe + frz
+    liq = liq + melt + freed + rain_in - frz
+    below = s.swe_mm.sum(axis=0) - top_value(s.swe_mm, t)
+    runoff = np.maximum(liq - h.liquid_hold_frac * np.minimum(below + swe, h.surface_mm), 0)
+    liq = liq - runoff
+    bare = t < 0
+    runoff = runoff + np.where(bare, liq, 0.0)
+    liq = np.where(bare, 0.0, liq)
+    wet_now = (liq > h.soft_liquid_mm) | (runoff > h.damp_mm) | (rain_in > h.rain_wet_mm_h)
+    s = replace(s, swe_mm=with_top(s.swe_mm, t, swe), liquid_mm=with_top(s.liquid_mm, t, liq),
+                melt_since_mm=s.melt_since_mm + melt + rain_in,
+                thaw_h=np.where(~bare & ((s.thaw_h > 0) | (liq > h.damp_mm)), s.thaw_h + 1, 0.0),
                 since_wet_h=np.where(wet_now, 0.0, s.since_wet_h + 1))
-    return s, melt + rain_in, drain, wet_now
+    return s, melt + rain_in, runoff, wet_now
 
 
 def _facets(s, t_c, snow, rain, p):
     q = p.daily
     t = top(s)
     total = s.swe_mm.sum(axis=0)
-    dry_top = (t >= 0) & (top_value(s.liquid_mm, t) == 0) & (snow == 0) & (total > q.has_snow_mm)
+    dry_top = (t >= 0) & (top_value(s.liquid_mm, t) <= p.hourly.damp_mm) & (snow == 0) & (total > q.has_snow_mm)
     depth_cm = total / q.swe_per_cm
     rate = q.facet_rate_per_day / DAY_H * np.clip((-t_c - q.facet_min_cold_c) / q.facet_cold_span_c, 0, 1) \
         * np.clip((q.facet_max_depth_cm - depth_cm) / q.facet_depth_span_cm, 0, 1)
@@ -143,7 +166,8 @@ def _facets(s, t_c, snow, rain, p):
     idx = np.arange(s.swe_mm.shape[0]).reshape((-1,) + (1,) * t.ndim)
     buried = (idx < t) & (s.kind != EMPTY)
     above = total - np.cumsum(s.swe_mm, axis=0)
-    near_crust = buried & (s.kind == CRUST) & (above < q.crust_facet_max_new_mm) & (t_c < q.crust_facet_cold_c) & dry_top
+    near_crust = buried & (s.kind == CRUST) & (above < q.crust_facet_max_new_mm) \
+        & (t_c < q.crust_facet_cold_c) & dry_top
     heal = (s.melt_since_mm > q.buried_melt_mm) | (rain * DAY_H > q.buried_rain_mm)
     facet = s.facet + np.where(near_crust, q.crust_facet_rate / DAY_H, 0.0)
     facet = np.where(buried, facet * math.exp(-1 / (DAY_H * q.buried_tau_days)), facet)
@@ -190,24 +214,26 @@ def _settle(s, t_c, snow, wet_now, p):
 def _refreeze(s, t_c, p):
     q = p.daily
     t = top(s)
-    cycle = (s.thaw_h > 0) & (t >= 0) & (top_value(s.liquid_mm, t) == 0) & (t_c < q.refreeze_c) \
+    liq = top_value(s.liquid_mm, t)
+    cycle = (s.thaw_h > 0) & (t >= 0) & (liq <= p.hourly.damp_mm) & (t_c < q.refreeze_c) \
         & (s.swe_mm.sum(axis=0) > q.crust_min_swe_mm)
     s = replace(s, kind=with_top(s.kind, t, np.where(cycle, CRUST, top_value(s.kind, t))),
+                swe_mm=with_top(s.swe_mm, t, top_value(s.swe_mm, t) + np.where(cycle, liq, 0.0)),
+                liquid_mm=with_top(s.liquid_mm, t, np.where(cycle, 0.0, liq)),
                 mf_cycles=s.mf_cycles + cycle, thaw_h=np.where(cycle, 0.0, s.thaw_h))
     return s, cycle
 
 
-def _surface(s, rain, drain, scour, p):
+def _surface(s, rain, runoff, scour, p):
     q, h = p.daily, p.hourly
     t = top(s)
     kind, liq = top_value(s.kind, t), top_value(s.liquid_mm, t)
-    dry = liq == 0
+    dry = liq <= h.damp_mm
     total = s.swe_mm.sum(axis=0) + s.liquid_mm.sum(axis=0)
-    powder = (kind == NEW) & dry & (top_value(s.age_h, t) <= h.powder_max_age_h) \
-        & (top_value(s.swe_mm, t) >= q.snow_event_mm)
+    powder = (kind == NEW) & dry & (top_value(s.age_h, t) <= h.powder_max_age_h) & (s.new_mm >= q.snow_event_mm)
     choices = [
         (total <= q.has_snow_mm, NONE),
-        ((liq > h.wet_liquid_mm) | (drain > 0) | (rain > h.rain_wet_mm_h), WET),
+        ((liq > h.wet_liquid_mm) | (runoff > h.damp_mm) | (rain > h.rain_wet_mm_h), WET),
         (liq > h.soft_liquid_mm, SOFT),
         (powder, POWDER),
         ((s.wind_slab > p.levels.considerable) | (scour > h.scour_surface), WIND),
@@ -224,20 +250,21 @@ def _age(s):
 def step(s, f, p, horizon=None):
     """Advance the snowpack one hour. Returns the new state and that hour's outputs; s is not changed."""
     for name in _CHECKED:
-        if np.isnan(getattr(f, name)).any():
+        v = getattr(f, name)
+        if v is not None and np.isnan(v).any():
             raise ValueError(f"forcing {name} has NaN")
     t_c = np.broadcast_to(f.t_c, s.new_mm.shape)
     snow, rain = _split(s, f, p)
     s = _snowfall(s, snow, p)
     s, scour = _wind(s, f, p)
     e = _energy(s, f, p, horizon)
-    s, water, drain, wet_now = _water(s, e, rain, p)
+    s, water, runoff, wet_now = _water(s, e, rain, p)
     s = _facets(s, t_c, snow, rain, p)
     storm, wind, wet, pers = _indices(s, water, e, snow, p)
     s = _settle(s, t_c, snow, wet_now, p)
     s, cycle = _refreeze(s, t_c, p)
-    surface = _surface(s, rain, drain, scour, p)
+    surface = _surface(s, rain, runoff, scour, p)
     out = Hourly(storm=storm, wind=wind, wet=wet, persistent=pers, ice=(surface == ICE).astype(float),
-                 surface=surface, snow_mm=snow, swe_mm=s.swe_mm.sum(axis=0), liquid_mm=top_value(s.liquid_mm, top(s)),
-                 cycle=cycle)
+                 surface=surface, snow_mm=snow, swe_mm=s.swe_mm.sum(axis=0),
+                 liquid_mm=top_value(s.liquid_mm, top(s)), runoff_mm=runoff, cycle=cycle)
     return _age(s), out
