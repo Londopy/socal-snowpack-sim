@@ -108,6 +108,17 @@
           <p class="strip-key"><span><i class="k-rain"></i>Precipitation, mm of water at 8,500 ft</span><span><i class="k-storm"></i>Storm days</span><span><i class="k-santa"></i>Santa Ana wind</span><span><i class="k-ft"></i>Freeze-thaw, share of snowy slopes that cycled</span><span>Simulated, 15 Nov to 30 Apr</span></p>
         </div>
       </footer>
+
+      <aside class="tour-card" id="tour" hidden aria-live="polite">
+        <h2 id="tour-title"></h2>
+        <p id="tour-text"></p>
+        <div class="tour-nav">
+          <span class="tour-step" id="tour-step"></span>
+          <button type="button" id="tour-prev">Back</button>
+          <button type="button" id="tour-next">Next</button>
+          <button type="button" id="tour-end">End tour</button>
+        </div>
+      </aside>
     </div>
 
     <section class="panel findings" id="findings" hidden aria-labelledby="findings-h">
@@ -120,16 +131,6 @@
       <div class="panel-body prose" id="about-body"></div>
     </section>
 
-    <aside class="tour-card" id="tour" hidden aria-live="polite">
-      <h2 id="tour-title"></h2>
-      <p id="tour-text"></p>
-      <div class="tour-nav">
-        <span class="tour-step" id="tour-step"></span>
-        <button type="button" id="tour-prev">Back</button>
-        <button type="button" id="tour-next">Next</button>
-        <button type="button" id="tour-end">End tour</button>
-      </div>
-    </aside>
 
     <div class="tip" id="tip" role="tooltip" hidden></div>
     <script type="module" src="./src/main.js"></script>
