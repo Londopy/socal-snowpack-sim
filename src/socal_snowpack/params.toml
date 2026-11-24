@@ -154,3 +154,6 @@ dry_day_rain_mm = 1.0
 
 [hourly]
 snow_transition_m = 150.0    # narrowest rain/snow transition, used when the snow level sd is smaller
+max_layers = 16
+new_layer_hours = 6.0        # snow within this many hours joins the same layer
+bury_mm = 12.0               # SWE over a weak layer before it counts as buried
